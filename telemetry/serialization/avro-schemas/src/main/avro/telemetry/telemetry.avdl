@@ -1,0 +1,93 @@
+@namespace("ru.yandex.practicum.kafka.telemetry.event")
+protocol TelemetryProtocol {
+
+  // ===== ENUMS =====
+  enum ActionTypeAvro {
+    ACTIVATE, DEACTIVATE, INVERSE, SET_VALUE
+  }
+
+  enum ConditionOperationAvro {
+    EQUALS, GREATER_THAN, LOWER_THAN
+  }
+
+  enum ConditionTypeAvro {
+    MOTION, LUMINOSITY, SWITCH, TEMPERATURE, CO2LEVEL, HUMIDITY
+  }
+
+  enum DeviceTypeAvro {
+    MOTION_SENSOR, TEMPERATURE_SENSOR, LIGHT_SENSOR, CLIMATE_SENSOR, SWITCH_SENSOR
+  }
+
+  // ===== SENSOR RECORDS =====
+  record ClimateSensorAvro {
+    int temperature_c;
+    int humidity;
+    int co2_level;
+  }
+
+  record LightSensorAvro {
+    int link_quality;
+    int luminosity;
+  }
+
+  record MotionSensorAvro {
+    int link_quality;
+    boolean motion;
+    int voltage;
+  }
+
+  record SwitchSensorAvro {
+    boolean state;
+  }
+
+  record TemperatureSensorAvro {
+    int temperature_c;
+    int temperature_f;
+  }
+
+  record SensorEventAvro {
+    string id;
+    string hubId;
+    timestamp_ms timestamp;
+    union {ClimateSensorAvro, LightSensorAvro, MotionSensorAvro, SwitchSensorAvro, TemperatureSensorAvro} payload;
+  }
+
+  // ===== HUB EVENT RECORDS =====
+  record DeviceActionAvro {
+    string sensor_id;
+    ActionTypeAvro type;
+    union {null, int} value = null;
+  }
+
+  record DeviceAddedEventAvro {
+    string id;
+    DeviceTypeAvro type;
+  }
+
+  record DeviceRemovedEventAvro {
+    string id;
+  }
+
+  record ScenarioConditionAvro {
+    string sensor_id;
+    ConditionTypeAvro type;
+    ConditionOperationAvro operation;
+    union {null, int, boolean} value = null;
+  }
+
+  record ScenarioAddedEventAvro {
+    string name;
+    array<ScenarioConditionAvro> conditions;
+    array<DeviceActionAvro> actions;
+  }
+
+  record ScenarioRemovedEventAvro {
+    string name;
+  }
+
+  record HubEventAvro {
+    string hub_id;
+    timestamp_ms timestamp;
+    union {DeviceAddedEventAvro, DeviceRemovedEventAvro, ScenarioAddedEventAvro, ScenarioRemovedEventAvro} payload;
+  }
+}
