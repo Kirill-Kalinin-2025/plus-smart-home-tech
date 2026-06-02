@@ -1,10 +1,22 @@
 spring:
   kafka:
     bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: ru.yandex.practicum.kafka.serializer.SensorsSnapshotSerializer
+    consumer:
+      group-id: aggregator-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: ru.yandex.practicum.kafka.deserializer.SensorEventDeserializer
+      auto-offset-reset: latest
+      enable-auto-commit: false
   main:
     allow-bean-definition-overriding: true
 
 logging:
   level:
     ru.yandex.practicum: DEBUG
-    org.apache.kafka: INFO
+    org.apache.kafka: DEBUG
+    org.apache.avro: DEBUG
+    org.apache.kafka.clients.producer: TRACE
+    org.apache.kafka.clients.consumer: TRACE
