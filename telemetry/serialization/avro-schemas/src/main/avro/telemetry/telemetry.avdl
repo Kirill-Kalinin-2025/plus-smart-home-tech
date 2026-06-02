@@ -104,7 +104,7 @@ protocol TelemetryProtocol {
     }
 
     record SensorsSnapshotAvro {
-      string hub_id;
+      string hubId;
       timestamp_ms timestamp;
       map<SensorStateAvro> sensorsState;
     }
