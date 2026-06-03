@@ -52,42 +52,60 @@ protocol TelemetryProtocol {
     union {ClimateSensorAvro, LightSensorAvro, MotionSensorAvro, SwitchSensorAvro, TemperatureSensorAvro} payload;
   }
 
-  // ===== HUB EVENT RECORDS =====
-  record DeviceActionAvro {
-    string sensor_id;
-    ActionTypeAvro type;
-    union {null, int} value = null;
-  }
+    // ===== HUB EVENT RECORDS =====
+    record DeviceActionAvro {
+      string sensor_id;
+      ActionTypeAvro type;
+      union {null, int} value = null;
+    }
 
-  record DeviceAddedEventAvro {
-    string id;
-    DeviceTypeAvro type;
-  }
+    record DeviceAddedEventAvro {
+      string id;
+      DeviceTypeAvro type;
+    }
 
-  record DeviceRemovedEventAvro {
-    string id;
-  }
+    record DeviceRemovedEventAvro {
+      string id;
+    }
 
-  record ScenarioConditionAvro {
-    string sensor_id;
-    ConditionTypeAvro type;
-    ConditionOperationAvro operation;
-    union {null, int, boolean} value = null;
-  }
+    record ScenarioConditionAvro {
+      string sensor_id;
+      ConditionTypeAvro type;
+      ConditionOperationAvro operation;
+      union {null, int, boolean} value = null;
+    }
 
-  record ScenarioAddedEventAvro {
-    string name;
-    array<ScenarioConditionAvro> conditions;
-    array<DeviceActionAvro> actions;
-  }
+    record ScenarioAddedEventAvro {
+      string name;
+      array<ScenarioConditionAvro> conditions;
+      array<DeviceActionAvro> actions;
+    }
 
-  record ScenarioRemovedEventAvro {
-    string name;
-  }
+    record ScenarioRemovedEventAvro {
+      string name;
+    }
 
-  record HubEventAvro {
-    string hub_id;
-    timestamp_ms timestamp;
-    union {DeviceAddedEventAvro, DeviceRemovedEventAvro, ScenarioAddedEventAvro, ScenarioRemovedEventAvro} payload;
+    record HubEventAvro {
+      string hub_id;
+      timestamp_ms timestamp;
+      union {DeviceAddedEventAvro, DeviceRemovedEventAvro, ScenarioAddedEventAvro, ScenarioRemovedEventAvro} payload;
+    }
+
+    // ===== SNAPSHOT RECORDS =====
+    record SensorStateAvro {
+      timestamp_ms timestamp;
+      union {
+        ClimateSensorAvro,
+        LightSensorAvro,
+        MotionSensorAvro,
+        SwitchSensorAvro,
+        TemperatureSensorAvro
+      } data;
+    }
+
+    record SensorsSnapshotAvro {
+      string hubId;
+      timestamp_ms timestamp;
+      map<SensorStateAvro> sensorsState;
+    }
   }
-}
