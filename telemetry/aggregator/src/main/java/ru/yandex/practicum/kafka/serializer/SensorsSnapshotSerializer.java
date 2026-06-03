@@ -1,5 +1,6 @@
 package ru.yandex.practicum.kafka.serializer;
 
+import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.kafka.common.errors.SerializationException;
@@ -8,7 +9,6 @@ import ru.yandex.practicum.kafka.telemetry.event.SensorsSnapshotAvro;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.HexFormat;
 
 public class SensorsSnapshotSerializer implements Serializer<SensorsSnapshotAvro> {
 
@@ -19,18 +19,11 @@ public class SensorsSnapshotSerializer implements Serializer<SensorsSnapshotAvro
         }
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
+            BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
             SpecificDatumWriter<SensorsSnapshotAvro> writer = new SpecificDatumWriter<>(data.getSchema());
-            writer.write(data, EncoderFactory.get().binaryEncoder(out, null));
-            out.close();
-            byte[] result = out.toByteArray();
-
-            // ПОДРОБНОЕ ЛОГИРОВАНИЕ
-            System.err.println("=== СЕРИАЛИЗАЦИЯ ===");
-            System.err.println("Schema: " + data.getSchema().getFullName());
-            System.err.println("Size: " + result.length);
-            System.err.println("HEX: " + HexFormat.of().formatHex(result));
-
-            return result;
+            writer.write(data, encoder);
+            encoder.flush();  // ← ДОБАВИТЬ!
+            return out.toByteArray();
         } catch (IOException e) {
             throw new SerializationException("Ошибка сериализации SensorsSnapshotAvro", e);
         }
