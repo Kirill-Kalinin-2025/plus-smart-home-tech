@@ -31,6 +31,8 @@ public class HubEventProcessor implements Runnable {
 
     @Override
     public void run() {
+        Runtime.getRuntime().addShutdownHook(new Thread(hubConsumer::wakeup));
+
         try {
             hubConsumer.subscribe(List.of(hubsTopic));
             log.info("HubEventProcessor подписан на топик: {}", hubsTopic);

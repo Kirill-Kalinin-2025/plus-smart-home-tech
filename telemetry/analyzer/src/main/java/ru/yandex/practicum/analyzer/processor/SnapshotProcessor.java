@@ -27,6 +27,8 @@ public class SnapshotProcessor {
     private String snapshotsTopic;
 
     public void start() {
+        Runtime.getRuntime().addShutdownHook(new Thread(snapshotConsumer::wakeup));
+
         try {
             snapshotConsumer.subscribe(List.of(snapshotsTopic));
             log.info("SnapshotProcessor подписан на топик: {}", snapshotsTopic);

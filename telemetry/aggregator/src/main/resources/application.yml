@@ -13,6 +13,12 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
+aggregator:
+  kafka:
+    topics:
+      input: telemetry.sensors.v1
+      output: telemetry.snapshots.v1
+
 logging:
   level:
     ru.yandex.practicum: DEBUG
