@@ -12,6 +12,8 @@ import ru.yandex.practicum.interaction.dto.shoppingstore.*;
 import ru.yandex.practicum.shoppingstore.entity.Product;
 import ru.yandex.practicum.shoppingstore.repository.ProductRepository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -23,13 +25,17 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<ProductDto> getProducts(String category, int page, int size, String sort) {
-        Sort sorting = parseSort(sort);
-        Pageable pageable = PageRequest.of(page, size, sorting);
+        Pageable pageable = PageRequest.of(page, size, parseSort(sort));
 
         Page<Product> products;
         if (category != null && !category.isEmpty()) {
-            ProductCategory productCategory = ProductCategory.valueOf(category.toUpperCase());
-            products = productRepository.findByProductStateAndProductCategory("ACTIVE", productCategory, pageable);
+            try {
+                ProductCategory productCategory = ProductCategory.valueOf(category.toUpperCase());
+                products = productRepository.findByProductStateAndProductCategory("ACTIVE", productCategory, pageable);
+            } catch (IllegalArgumentException e) {
+                log.error("Неизвестная категория: {}", category);
+                products = Page.empty();
+            }
         } else {
             products = productRepository.findByProductState("ACTIVE", pageable);
         }
@@ -42,27 +48,32 @@ public class ProductService {
             return Sort.by(Sort.Direction.ASC, "productName");
         }
 
-        String[] parts = sort.split(",");
-        String property = parts[0].trim();
-        Sort.Direction direction = Sort.Direction.ASC;
+        List<Sort.Order> orders = new ArrayList<>();
+        String[] sortParams = sort.split(",");
 
-        if (parts.length > 1) {
-            String dir = parts[1].trim().toUpperCase();
-            if ("DESC".equals(dir)) {
-                direction = Sort.Direction.DESC;
+        for (int i = 0; i < sortParams.length; i += 2) {
+            String property = sortParams[i].trim();
+            Sort.Direction direction = Sort.Direction.ASC;
+
+            if (i + 1 < sortParams.length) {
+                String dir = sortParams[i + 1].trim().toUpperCase();
+                if ("DESC".equals(dir)) {
+                    direction = Sort.Direction.DESC;
+                }
             }
+
+            String entityField = switch (property) {
+                case "productName" -> "productName";
+                case "price" -> "price";
+                case "productCategory" -> "productCategory";
+                case "quantityState" -> "quantityState";
+                default -> "productName";
+            };
+
+            orders.add(new Sort.Order(direction, entityField));
         }
 
-        // Маппинг имени свойства из DTO на поле entity
-        String entityField = switch (property) {
-            case "productName" -> "productName";
-            case "price" -> "price";
-            case "productCategory" -> "productCategory";
-            case "quantityState" -> "quantityState";
-            default -> "productName";
-        };
-
-        return Sort.by(direction, entityField);
+        return Sort.by(orders);
     }
 
     @Transactional(readOnly = true)
