@@ -1,12 +1,13 @@
 package ru.yandex.practicum.config;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.CooperativeStickyAssignor;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import ru.yandex.practicum.kafka.deserializer.SensorEventDeserializer;
@@ -19,10 +20,19 @@ import org.apache.kafka.clients.producer.Producer;
 import java.util.Properties;
 
 @Configuration
+@ConfigurationProperties("aggregator.kafka")
+@Getter
+@Setter
 public class KafkaConfig {
 
-    @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
+    private String groupId;
+    private String autoOffsetReset;
+    private Boolean enableAutoCommit;
+    private String keyDeserializer;
+    private String valueDeserializer;
+    private String keySerializer;
+    private String valueSerializer;
 
     @Bean
     public Consumer<String, SpecificRecordBase> kafkaConsumer() {
@@ -35,8 +45,6 @@ public class KafkaConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "aggregator-group");
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-                CooperativeStickyAssignor.class.getName());
 
         return new KafkaConsumer<>(props);
     }

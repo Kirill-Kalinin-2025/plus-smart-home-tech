@@ -34,6 +34,7 @@
         <!--       Plugins       -->
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
         <avro-maven-plugin.version>${avro.version}</avro-maven-plugin.version>
+        <spring-cloud-dependencies.version>2023.0.3</spring-cloud-dependencies.version>
     </properties>
 
     <dependencyManagement>
@@ -94,6 +95,14 @@
                 <groupId>net.devh</groupId>
                 <artifactId>grpc-client-spring-boot-starter</artifactId>
                 <version>${grpc-spring-boot-starter.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>2023.0.3</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
