@@ -50,8 +50,7 @@ analyzer:
 
 eureka:
   client:
-    serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
+    enabled: false
 
 logging:
   level:
