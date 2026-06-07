@@ -1,40 +1,11 @@
 spring:
-  application:
-    name: analyzer
-  config:
-    import: "configserver:"
-  cloud:
-    config:
-      discovery:
-        enabled: true
-        serviceId: config-server
-      fail-fast: false
-      retry:
-        useRandomPolicy: true
-        max-interval: 6000
-
+  kafka:
+    bootstrap-servers: localhost:9092
   datasource:
     url: jdbc:postgresql://localhost:5432/smart_home
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: none
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-    show-sql: false
-
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema.sql
-
-  kafka:
-    bootstrap-servers: localhost:9092
 
 grpc:
   client:
@@ -58,11 +29,6 @@ analyzer:
         group-id: analyzer-hubs-group
         client-id: analyzer-hubs-consumer
         enable-auto-commit: true
-
-eureka:
-  client:
-    serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
 
 logging:
   level:

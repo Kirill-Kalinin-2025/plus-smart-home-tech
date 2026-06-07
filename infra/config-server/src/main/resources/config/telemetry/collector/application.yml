@@ -1,0 +1,14 @@
+grpc:
+  server:
+    port: 59091
+
+kafka:
+  bootstrap-servers: localhost:9092
+  topic:
+    sensors: telemetry.sensors.v1
+    hubs: telemetry.hubs.v1
+
+logging:
+  level:
+    ru.yandex.practicum: DEBUG
+    org.apache.kafka: WARN
