@@ -129,8 +129,8 @@ public class HubEventProcessor implements Runnable {
 
             Condition condition = conditionRepository.save(
                     Condition.builder()
-                            .type(cDto.getType().name())
-                            .operation(cDto.getOperation().name())
+                            .type(cDto.getType())
+                            .operation(cDto.getOperation())
                             .value(getConditionValue(cDto))
                             .build());
 
@@ -154,7 +154,7 @@ public class HubEventProcessor implements Runnable {
 
             Action action = actionRepository.save(
                     Action.builder()
-                            .type(aDto.getType().name())
+                            .type(aDto.getType())
                             .value(aDto.getValue() != null ? aDto.getValue() : null)
                             .build());
 

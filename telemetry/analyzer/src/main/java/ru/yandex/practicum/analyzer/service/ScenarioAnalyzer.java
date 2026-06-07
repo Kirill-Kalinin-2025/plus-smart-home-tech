@@ -64,14 +64,15 @@ public class ScenarioAnalyzer {
                 scenarioConditionRepository.findByScenario(scenario);
 
         if (scenarioConditions.isEmpty()) {
+            log.warn("У сценария '{}' нет условий", scenario.getName());
             return false;
         }
 
         log.info("Проверяю {} условий для сценария '{}'", scenarioConditions.size(), scenario.getName());
 
-        // Все условия должны выполняться
+        // Все условия должны выполняться (noneMatch + отрицание = allMatch)
         return scenarioConditions.stream()
-                .allMatch(sc -> checkCondition(sc.getCondition(), sc.getSensor().getId(), sensorsState));
+                .noneMatch(sc -> !checkCondition(sc.getCondition(), sc.getSensor().getId(), sensorsState));
     }
 
     private boolean checkCondition(Condition condition, String sensorId,
@@ -89,44 +90,42 @@ public class ScenarioAnalyzer {
         }
 
         Integer targetValue = condition.getValue();
-        String operation = condition.getOperation();
 
-        boolean result = switch (operation) {
-            case "EQUALS" -> currentValue.equals(targetValue);
-            case "GREATER_THAN" -> currentValue > targetValue;
-            case "LOWER_THAN" -> currentValue < targetValue;
-            default -> false;
+        boolean result = switch (condition.getOperation()) {
+            case EQUALS -> currentValue.equals(targetValue);
+            case GREATER_THAN -> currentValue > targetValue;
+            case LOWER_THAN -> currentValue < targetValue;
         };
 
-        log.debug("Датчик {}: текущее={}, операция={}, целевое={} -> {}",
-                sensorId, currentValue, operation, targetValue, result);
+        log.debug("Датчик {} ({}): текущее={}, операция={}, целевое={} -> {}",
+                sensorId, condition.getType(), currentValue, condition.getOperation(), targetValue, result);
 
         return result;
     }
 
-    private Integer getSensorValue(String conditionType, SensorStateAvro sensorState) {
+    private Integer getSensorValue(ConditionTypeAvro conditionType, SensorStateAvro sensorState) {
         Object data = sensorState.getData();
 
         return switch (conditionType) {
-            case "MOTION" -> {
+            case MOTION -> {
                 if (data instanceof MotionSensorAvro motion) {
                     yield motion.getMotion() ? 1 : 0;
                 }
                 yield null;
             }
-            case "LUMINOSITY" -> {
+            case LUMINOSITY -> {
                 if (data instanceof LightSensorAvro light) {
                     yield light.getLuminosity();
                 }
                 yield null;
             }
-            case "SWITCH" -> {
+            case SWITCH -> {
                 if (data instanceof SwitchSensorAvro sw) {
                     yield sw.getState() ? 1 : 0;
                 }
                 yield null;
             }
-            case "TEMPERATURE" -> {
+            case TEMPERATURE -> {
                 if (data instanceof ClimateSensorAvro climate) {
                     yield climate.getTemperatureC();
                 }
@@ -135,19 +134,18 @@ public class ScenarioAnalyzer {
                 }
                 yield null;
             }
-            case "CO2LEVEL" -> {
+            case CO2LEVEL -> {
                 if (data instanceof ClimateSensorAvro climate) {
                     yield climate.getCo2Level();
                 }
                 yield null;
             }
-            case "HUMIDITY" -> {
+            case HUMIDITY -> {
                 if (data instanceof ClimateSensorAvro climate) {
                     yield climate.getHumidity();
                 }
                 yield null;
             }
-            default -> null;
         };
     }
 
@@ -158,11 +156,11 @@ public class ScenarioAnalyzer {
         log.info("Отправляю {} действий для сценария '{}'", scenarioActions.size(), scenario.getName());
 
         for (ScenarioAction scenarioAction : scenarioActions) {
-            executeAction(scenarioAction);
+            sendAction(scenarioAction);
         }
     }
 
-    private void executeAction(ScenarioAction scenarioAction) {
+    private void sendAction(ScenarioAction scenarioAction) {
         try {
             Scenario scenario = scenarioAction.getScenario();
             Sensor sensor = scenarioAction.getSensor();
@@ -171,11 +169,9 @@ public class ScenarioAnalyzer {
             log.info("Отправляю действие: hubId={}, scenario={}, sensorId={}, type={}, value={}",
                     scenario.getHubId(), scenario.getName(), sensor.getId(), action.getType(), action.getValue());
 
-            ActionTypeProto actionType = ActionTypeProto.valueOf(action.getType());
-
             DeviceActionProto deviceAction = DeviceActionProto.newBuilder()
                     .setSensorId(sensor.getId())
-                    .setType(actionType)
+                    .setType(ActionTypeProto.valueOf(action.getType().name()))
                     .setValue(action.getValue() != null ? action.getValue() : 0)
                     .build();
 

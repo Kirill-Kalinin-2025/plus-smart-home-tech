@@ -2,6 +2,7 @@ package ru.yandex.practicum.analyzer.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import ru.yandex.practicum.kafka.telemetry.event.ActionTypeAvro;
 
 @Entity
 @Table(name = "actions")
@@ -17,7 +18,8 @@ public class Action {
     private Long id;
 
     @Column(name = "type", nullable = false)
-    private String type;
+    @Enumerated(EnumType.STRING)
+    private ActionTypeAvro type;
 
     @Column(name = "value")
     private Integer value;

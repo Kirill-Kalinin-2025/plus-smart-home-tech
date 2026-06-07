@@ -5,10 +5,9 @@ spring:
     import: ""
   cloud:
     config:
-      discovery:
+      enabled: false
+      import-check:
         enabled: false
-        serviceId: config-server
-      fail-fast: false
   kafka:
     bootstrap-servers: localhost:9092
     producer:
@@ -32,7 +31,7 @@ aggregator:
 
 eureka:
   client:
-    enabled: false  # Отключили Eureka
+    enabled: false
 
 logging:
   level:
