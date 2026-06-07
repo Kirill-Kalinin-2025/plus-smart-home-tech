@@ -1,14 +1,15 @@
-grpc:
-  server:
-    port: 59091
+logging.level.ru.yandex.practicum=TRACE
 
-kafka:
-  bootstrap-servers: localhost:9092
-  topic:
-    sensors: telemetry.sensors.v1
-    hubs: telemetry.hubs.v1
-
-logging:
-  level:
-    ru.yandex.practicum: DEBUG
-    org.apache.kafka: WARN
+server.port=8081
+  
+  #  gRPC
+grpc.server.port=59091
+  
+  #  Kafka-topics
+collector.kafka.topic.telemetry-sensors=telemetry.sensors.v1
+collector.kafka.topic.telemetry-hubs=telemetry.hubs.v1
+  
+  #  Kafka-producer
+collector.kafka.producer.properties.bootstrap-servers=localhost:9092
+collector.kafka.producer.properties.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+collector.kafka.producer.properties.value-serializer=ru.yandex.practicum.kafka.serializer.GeneralAvroSerializer

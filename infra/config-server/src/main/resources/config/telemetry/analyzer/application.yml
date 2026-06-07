@@ -1,36 +1,40 @@
-spring:
-  kafka:
-    bootstrap-servers: localhost:9092
-  datasource:
-    url: jdbc:postgresql://localhost:5432/smart_home
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
+analyzer.kafka.topic.telemetry.snapshots=telemetry.snapshots.v1
+analyzer.kafka.topic.telemetry.hubs=telemetry.hubs.v1
+  
+  #  Kafka-consumer Hub Events
+analyzer.kafka.consumer.hub.properties.bootstrap-servers=localhost:9092
+analyzer.kafka.consumer.hub.properties.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+analyzer.kafka.consumer.hub.properties.value-deserializer=ru.yandex.practicum.analyzer.kafka.deserializer.HubEventDeserializer
+analyzer.kafka.consumer.hub.properties.group-id=hubEvent.group.id
+analyzer.kafka.consumer.hub.properties.client-id=HubEventConsumer
+analyzer.kafka.consumer.hub.properties.auto-offset-reset=earliest
+analyzer.kafka.consumer.hub.properties.enable-auto-commit=false
+  
+  #  Kafka-consumer Snapshots
+analyzer.kafka.consumer.snapshots.properties.bootstrap-servers=localhost:9092
+analyzer.kafka.consumer.snapshots.properties.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+analyzer.kafka.consumer.snapshots.properties.value-deserializer=ru.yandex.practicum.analyzer.kafka.deserializer.SensorsSnapshotDeserializer
+analyzer.kafka.consumer.snapshots.properties.group-id=snapshot.group.id
+analyzer.kafka.consumer.snapshots.properties.client-id=SnapshotsConsumer
+analyzer.kafka.consumer.snapshots.properties.auto-offset-reset=earliest
+analyzer.kafka.consumer.snapshots.properties.enable-auto-commit=false
+  
+  #  gRPC
+grpc.client.hub-router.address=static://localhost:59090
+grpc.client.hub-router.enableKeepAlive=true
+grpc.client.hub-router.keepAliveWithoutCalls=true
+grpc.client.hub-router.negotiationType=plaintext
+  
+  #  Hibernate
+spring.jpa.hibernate.ddl-auto=none
+spring.jpa.properties.hibernate.format_sql=true
+spring.sql.init.mode=always
+spring.jpa.show_sql=false
+  
+  #  Postgres
+spring.datasource.driverClassName=org.postgresql.Driver
+spring.datasource.url=jdbc:postgresql://localhost:5432/smart_home
+spring.datasource.username=postgres
+spring.datasource.password=postgres
 
-grpc:
-  client:
-    hub-router:
-      address: 'discovery:///hub-router'
-      enableKeepAlive: true
-      keepAliveWithoutCalls: true
-      negotiationType: plaintext
-
-analyzer:
-  kafka:
-    topics:
-      snapshots: telemetry.snapshots.v1
-      hubs: telemetry.hubs.v1
-    consumer:
-      snapshots:
-        group-id: analyzer-snapshots-group
-        client-id: analyzer-snapshots-consumer
-        enable-auto-commit: false
-      hubs:
-        group-id: analyzer-hubs-group
-        client-id: analyzer-hubs-consumer
-        enable-auto-commit: true
-
-logging:
-  level:
-    ru.yandex.practicum: DEBUG
-    org.apache.kafka: WARN
+server.port=8083
