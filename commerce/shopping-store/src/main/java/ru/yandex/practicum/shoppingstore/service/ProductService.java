@@ -51,26 +51,30 @@ public class ProductService {
         List<Sort.Order> orders = new ArrayList<>();
         String[] sortParams = sort.split(",");
 
-        for (int i = 0; i < sortParams.length; i += 2) {
-            String property = sortParams[i].trim();
-            Sort.Direction direction = Sort.Direction.ASC;
+        // Идём по парам: поле, направление
+        for (int i = 0; i < sortParams.length; i++) {
+            String part = sortParams[i].trim();
 
+            // Проверяем, является ли часть направлением
+            if (part.equalsIgnoreCase("ASC") || part.equalsIgnoreCase("DESC")) {
+                continue; // пропускаем, это направление
+            }
+
+            Sort.Direction direction = Sort.Direction.ASC;
             if (i + 1 < sortParams.length) {
-                String dir = sortParams[i + 1].trim().toUpperCase();
-                if ("DESC".equals(dir)) {
+                String nextPart = sortParams[i + 1].trim();
+                if (nextPart.equalsIgnoreCase("DESC")) {
                     direction = Sort.Direction.DESC;
+                } else if (nextPart.equalsIgnoreCase("ASC")) {
+                    direction = Sort.Direction.ASC;
                 }
             }
 
-            String entityField = switch (property) {
-                case "productName" -> "productName";
-                case "price" -> "price";
-                case "productCategory" -> "productCategory";
-                case "quantityState" -> "quantityState";
-                default -> "productName";
-            };
+            orders.add(new Sort.Order(direction, part));
+        }
 
-            orders.add(new Sort.Order(direction, entityField));
+        if (orders.isEmpty()) {
+            orders.add(new Sort.Order(Sort.Direction.ASC, "productName"));
         }
 
         return Sort.by(orders);
