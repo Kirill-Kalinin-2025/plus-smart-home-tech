@@ -2,10 +2,36 @@ spring:
   application:
     name: aggregator
   config:
-    import: configserver:http://localhost:8888
+    import: optional:configserver:http://localhost:8888
   cloud:
     config:
-      fail-fast: true
+      fail-fast: false
       retry:
         useRandomPolicy: true
         max-interval: 6000
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: ru.yandex.practicum.kafka.serializer.GeneralAvroSerializer
+    consumer:
+      group-id: aggregator-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: ru.yandex.practicum.kafka.deserializer.SensorEventDeserializer
+      auto-offset-reset: latest
+      enable-auto-commit: false
+  main:
+    allow-bean-definition-overriding: true
+
+aggregator:
+  kafka:
+    bootstrap-servers: localhost:9092
+    topics:
+      input: telemetry.sensors.v1
+      output: telemetry.snapshots.v1
+
+logging:
+  level:
+    ru.yandex.practicum: DEBUG
+    org.apache.kafka: WARN
+    org.apache.avro: WARN
