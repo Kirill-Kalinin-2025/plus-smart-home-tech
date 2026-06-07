@@ -28,7 +28,7 @@ spring:
 grpc:
   client:
     hub-router:
-      address: 'static://localhost:59090'
+      address: 'discovery:///hub-router'
       enableKeepAlive: true
       keepAliveWithoutCalls: true
       negotiationType: plaintext
@@ -47,6 +47,11 @@ analyzer:
         group-id: analyzer-hubs-group
         client-id: analyzer-hubs-consumer
         enable-auto-commit: true
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
 
 logging:
   level:
