@@ -31,13 +31,13 @@ public class ProductService {
         if (category != null && !category.isEmpty()) {
             try {
                 ProductCategory productCategory = ProductCategory.valueOf(category.toUpperCase());
-                products = productRepository.findByProductStateAndProductCategory("ACTIVE", productCategory, pageable);
+                products = productRepository.findByProductStateAndProductCategory(ProductState.ACTIVE, productCategory, pageable);
             } catch (IllegalArgumentException e) {
                 log.error("Неизвестная категория: {}", category);
                 products = Page.empty();
             }
         } else {
-            products = productRepository.findByProductState("ACTIVE", pageable);
+            products = productRepository.findByProductState(ProductState.ACTIVE, pageable);
         }
 
         return products.map(this::toDto);
