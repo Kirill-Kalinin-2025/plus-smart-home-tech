@@ -58,6 +58,12 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Eureka Client -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
         <!-- Тесты -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
