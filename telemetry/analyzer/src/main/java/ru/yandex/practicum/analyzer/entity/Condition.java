@@ -16,11 +16,6 @@ public class Condition {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "scenario_id")
-    @ToString.Exclude
-    private Scenario scenario;
-
     @Column(name = "type", nullable = false)
     private String type;
 

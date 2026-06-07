@@ -16,14 +16,6 @@ public class Action {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "scenario_id")
-    @ToString.Exclude
-    private Scenario scenario;
-
-    @Column(name = "sensor_id")
-    private String sensorId;
-
     @Column(name = "type", nullable = false)
     private String type;
 

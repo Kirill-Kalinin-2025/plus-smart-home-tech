@@ -5,14 +5,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.analyzer.entity.Action;
-import ru.yandex.practicum.analyzer.entity.Condition;
-import ru.yandex.practicum.analyzer.entity.Scenario;
+import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.analyzer.entity.*;
+import ru.yandex.practicum.analyzer.repository.ScenarioActionRepository;
+import ru.yandex.practicum.analyzer.repository.ScenarioConditionRepository;
 import ru.yandex.practicum.analyzer.repository.ScenarioRepository;
 import ru.yandex.practicum.grpc.telemetry.event.*;
 import ru.yandex.practicum.grpc.telemetry.hubrouter.HubRouterControllerGrpc;
-import ru.yandex.practicum.kafka.telemetry.event.SensorStateAvro;
-import ru.yandex.practicum.kafka.telemetry.event.SensorsSnapshotAvro;
+import ru.yandex.practicum.kafka.telemetry.event.*;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,10 +24,13 @@ import java.util.Map;
 public class ScenarioAnalyzer {
 
     private final ScenarioRepository scenarioRepository;
+    private final ScenarioConditionRepository scenarioConditionRepository;
+    private final ScenarioActionRepository scenarioActionRepository;
 
     @GrpcClient("hub-router")
     private HubRouterControllerGrpc.HubRouterControllerBlockingStub hubRouterClient;
 
+    @Transactional(readOnly = true)
     public void analyzeSnapshot(SensorsSnapshotAvro snapshot) {
         String hubId = snapshot.getHubId();
         Map<String, SensorStateAvro> sensorsState = snapshot.getSensorsState();
@@ -48,7 +51,7 @@ public class ScenarioAnalyzer {
             log.info("Проверяю сценарий: {}", scenario.getName());
             if (checkScenarioConditions(scenario, sensorsState)) {
                 log.info("✓ Сценарий '{}' АКТИВИРОВАН для хаба {}", scenario.getName(), hubId);
-                executeScenarioActions(scenario, hubId, sensorsState);
+                executeScenarioActions(scenario);
             } else {
                 log.info("✗ Сценарий '{}' не активирован для хаба {}", scenario.getName(), hubId);
             }
@@ -57,70 +60,90 @@ public class ScenarioAnalyzer {
 
     private boolean checkScenarioConditions(Scenario scenario,
                                             Map<String, SensorStateAvro> sensorsState) {
-        if (scenario.getConditions() == null || scenario.getConditions().isEmpty()) {
+        List<ScenarioCondition> scenarioConditions =
+                scenarioConditionRepository.findByScenario(scenario);
+
+        if (scenarioConditions.isEmpty()) {
             return false;
         }
 
-        return scenario.getConditions().stream()
-                .allMatch(condition -> checkCondition(condition, sensorsState));
+        log.info("Проверяю {} условий для сценария '{}'", scenarioConditions.size(), scenario.getName());
+
+        // Все условия должны выполняться
+        return scenarioConditions.stream()
+                .allMatch(sc -> checkCondition(sc.getCondition(), sc.getSensor().getId(), sensorsState));
     }
 
-    private boolean checkCondition(Condition condition,
-                                   Map<String, SensorStateAvro> sensorsState) {
-        String type = condition.getType();
+    private boolean checkCondition(Condition condition, String sensorId,
+                                   Map<String, SensorStateAvro> sensorStateMap) {
+        SensorStateAvro sensorState = sensorStateMap.get(sensorId);
+        if (sensorState == null) {
+            log.debug("Датчик {} не найден в снапшоте", sensorId);
+            return false;
+        }
+
+        Integer currentValue = getSensorValue(condition.getType(), sensorState);
+        if (currentValue == null) {
+            log.debug("Не удалось получить значение для датчика {} типа {}", sensorId, condition.getType());
+            return false;
+        }
+
+        Integer targetValue = condition.getValue();
         String operation = condition.getOperation();
-        Integer requiredValue = condition.getValue();
 
-        return sensorsState.values().stream()
-                .filter(state -> getSensorValueByType(state, type) != null)
-                .anyMatch(state -> {
-                    Integer sensorValue = getSensorValueByType(state, type);
-                    return compareValues(sensorValue, operation, requiredValue);
-                });
+        boolean result = switch (operation) {
+            case "EQUALS" -> currentValue.equals(targetValue);
+            case "GREATER_THAN" -> currentValue > targetValue;
+            case "LOWER_THAN" -> currentValue < targetValue;
+            default -> false;
+        };
+
+        log.debug("Датчик {}: текущее={}, операция={}, целевое={} -> {}",
+                sensorId, currentValue, operation, targetValue, result);
+
+        return result;
     }
 
-    private Integer getSensorValueByType(SensorStateAvro state, String type) {
-        Object data = state.getData();
+    private Integer getSensorValue(String conditionType, SensorStateAvro sensorState) {
+        Object data = sensorState.getData();
 
-        return switch (type) {
-            case "TEMPERATURE" -> {
-                // Сначала проверяем TemperatureSensorAvro
-                if (data instanceof ru.yandex.practicum.kafka.telemetry.event.TemperatureSensorAvro temp) {
-                    yield temp.getTemperatureC();
-                }
-                // Затем ClimateSensorAvro (он тоже содержит температуру)
-                if (data instanceof ru.yandex.practicum.kafka.telemetry.event.ClimateSensorAvro climate) {
-                    yield climate.getTemperatureC();
+        return switch (conditionType) {
+            case "MOTION" -> {
+                if (data instanceof MotionSensorAvro motion) {
+                    yield motion.getMotion() ? 1 : 0;
                 }
                 yield null;
             }
             case "LUMINOSITY" -> {
-                if (data instanceof ru.yandex.practicum.kafka.telemetry.event.LightSensorAvro light) {
+                if (data instanceof LightSensorAvro light) {
                     yield light.getLuminosity();
                 }
                 yield null;
             }
+            case "SWITCH" -> {
+                if (data instanceof SwitchSensorAvro sw) {
+                    yield sw.getState() ? 1 : 0;
+                }
+                yield null;
+            }
+            case "TEMPERATURE" -> {
+                if (data instanceof ClimateSensorAvro climate) {
+                    yield climate.getTemperatureC();
+                }
+                if (data instanceof TemperatureSensorAvro temp) {
+                    yield temp.getTemperatureC();
+                }
+                yield null;
+            }
             case "CO2LEVEL" -> {
-                if (data instanceof ru.yandex.practicum.kafka.telemetry.event.ClimateSensorAvro climate) {
+                if (data instanceof ClimateSensorAvro climate) {
                     yield climate.getCo2Level();
                 }
                 yield null;
             }
             case "HUMIDITY" -> {
-                if (data instanceof ru.yandex.practicum.kafka.telemetry.event.ClimateSensorAvro climate) {
+                if (data instanceof ClimateSensorAvro climate) {
                     yield climate.getHumidity();
-                }
-                yield null;
-            }
-            case "MOTION" -> {
-                if (data instanceof ru.yandex.practicum.kafka.telemetry.event.MotionSensorAvro motion) {
-                    yield motion.getMotion() ? 1 : 0;
-                }
-                yield null;
-            }
-            case "SWITCH" -> {
-                if (data instanceof ru.yandex.practicum.kafka.telemetry.event.SwitchSensorAvro sw) {
-                    yield sw.getState() ? 1 : 0;
                 }
                 yield null;
             }
@@ -128,54 +151,48 @@ public class ScenarioAnalyzer {
         };
     }
 
-    private boolean compareValues(Integer sensorValue, String operation, Integer requiredValue) {
-        if (sensorValue == null || requiredValue == null) {
-            return false;
-        }
+    private void executeScenarioActions(Scenario scenario) {
+        List<ScenarioAction> scenarioActions =
+                scenarioActionRepository.findByScenario(scenario);
 
-        return switch (operation) {
-            case "EQUALS" -> sensorValue.equals(requiredValue);
-            case "GREATER_THAN" -> sensorValue > requiredValue;
-            case "LOWER_THAN" -> sensorValue < requiredValue;
-            default -> false;
-        };
-    }
+        log.info("Отправляю {} действий для сценария '{}'", scenarioActions.size(), scenario.getName());
 
-    private void executeScenarioActions(Scenario scenario, String hubId,
-                                        Map<String, SensorStateAvro> sensorsState) {
-        if (scenario.getActions() == null || scenario.getActions().isEmpty()) {
-            return;
-        }
-
-        for (Action action : scenario.getActions()) {
-            executeAction(action, hubId, scenario.getName());
+        for (ScenarioAction scenarioAction : scenarioActions) {
+            executeAction(scenarioAction);
         }
     }
 
-    private void executeAction(Action action, String hubId, String scenarioName) {
+    private void executeAction(ScenarioAction scenarioAction) {
         try {
+            Scenario scenario = scenarioAction.getScenario();
+            Sensor sensor = scenarioAction.getSensor();
+            Action action = scenarioAction.getAction();
+
             log.info("Отправляю действие: hubId={}, scenario={}, sensorId={}, type={}, value={}",
-                    hubId, scenarioName, action.getSensorId(), action.getType(), action.getValue());
+                    scenario.getHubId(), scenario.getName(), sensor.getId(), action.getType(), action.getValue());
+
+            ActionTypeProto actionType = ActionTypeProto.valueOf(action.getType());
 
             DeviceActionProto deviceAction = DeviceActionProto.newBuilder()
-                    .setSensorId(action.getSensorId() != null ? action.getSensorId() : "")
-                    .setType(ActionTypeProto.valueOf(action.getType()))
+                    .setSensorId(sensor.getId())
+                    .setType(actionType)
                     .setValue(action.getValue() != null ? action.getValue() : 0)
                     .build();
 
             DeviceActionRequest request = DeviceActionRequest.newBuilder()
-                    .setHubId(hubId)
-                    .setScenarioName(scenarioName)
+                    .setHubId(scenario.getHubId())
+                    .setScenarioName(scenario.getName())
                     .setAction(deviceAction)
                     .setTimestamp(Timestamp.newBuilder()
                             .setSeconds(Instant.now().getEpochSecond())
+                            .setNanos(Instant.now().getNano())
                             .build())
                     .build();
 
             hubRouterClient.handleDeviceAction(request);
             log.info("✓ Действие отправлено успешно");
         } catch (Exception e) {
-            log.error("✗ Ошибка: {}", e.getMessage());
+            log.error("✗ Ошибка при отправке действия: {}", e.getMessage(), e);
         }
     }
 }

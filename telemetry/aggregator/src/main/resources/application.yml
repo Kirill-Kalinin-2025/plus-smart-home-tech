@@ -2,16 +2,13 @@ spring:
   application:
     name: aggregator
   config:
-    import: "optional:configserver:"
+    import: ""
   cloud:
     config:
       discovery:
-        enabled: true
+        enabled: false
         serviceId: config-server
       fail-fast: false
-      retry:
-        useRandomPolicy: true
-        max-interval: 6000
   kafka:
     bootstrap-servers: localhost:9092
     producer:
@@ -35,8 +32,7 @@ aggregator:
 
 eureka:
   client:
-    serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
+    enabled: false  # Отключили Eureka
 
 logging:
   level:
