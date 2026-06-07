@@ -4,7 +4,6 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.interaction.dto.shoppingstore.ProductDto;
-import ru.yandex.practicum.interaction.dto.shoppingstore.SetProductQuantityStateRequest;
 
 import java.util.UUID;
 
@@ -15,7 +14,7 @@ public interface ShoppingStoreClient {
     Page<ProductDto> getProducts(@RequestParam String category,
                                  @RequestParam(defaultValue = "0") int page,
                                  @RequestParam(defaultValue = "20") int size,
-                                 @RequestParam(defaultValue = "") String[] sort);
+                                 @RequestParam(required = false) String sort);
 
     @GetMapping("/api/v1/shopping-store/{productId}")
     ProductDto getProduct(@PathVariable UUID productId);
@@ -30,5 +29,6 @@ public interface ShoppingStoreClient {
     boolean removeProductFromStore(@RequestBody UUID productId);
 
     @PostMapping("/api/v1/shopping-store/quantityState")
-    boolean setProductQuantityState(@RequestBody SetProductQuantityStateRequest request);
+    boolean setProductQuantityState(@RequestParam UUID productId,
+                                    @RequestParam String quantityState);
 }

@@ -8,7 +8,6 @@ import ru.yandex.practicum.interaction.dto.shoppingstore.QuantityState;
 import ru.yandex.practicum.interaction.dto.shoppingstore.SetProductQuantityStateRequest;
 import ru.yandex.practicum.shoppingstore.service.ProductService;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,10 +21,8 @@ public class ShoppingStoreController {
     public Page<ProductDto> getProducts(@RequestParam String category,
                                         @RequestParam(defaultValue = "0") int page,
                                         @RequestParam(defaultValue = "20") int size,
-                                        @RequestParam(defaultValue = "") List<String> sort) {
-        // Объединяем все параметры сортировки через запятую
-        String sortStr = sort != null && !sort.isEmpty() ? String.join(",", sort) : "productName,ASC";
-        return productService.getProducts(category, page, size, sortStr);
+                                        @RequestParam(required = false) String sort) {
+        return productService.getProducts(category, page, size, sort);
     }
 
     @PutMapping

@@ -97,7 +97,7 @@ public class ProductService {
                 .price(productDto.getPrice())
                 .productCategory(productDto.getProductCategory())
                 .quantityState(productDto.getQuantityState() != null ? productDto.getQuantityState() : QuantityState.MANY)
-                .productState(ProductState.ACTIVE)
+                .productState(productDto.getProductState() != null ? productDto.getProductState() : ProductState.ACTIVE)
                 .build();
 
         product = productRepository.save(product);
