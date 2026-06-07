@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.interaction.dto.shoppingstore.*;
@@ -21,11 +22,12 @@ public class ProductService {
     private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
-    public Page<ProductDto> getProducts(String category, int page, int size, String[] sort) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<ProductDto> getProducts(String category, int page, int size, String sort) {
+        Sort sorting = parseSort(sort);
+        Pageable pageable = PageRequest.of(page, size, sorting);
 
         Page<Product> products;
-        if (category != null) {
+        if (category != null && !category.isEmpty()) {
             ProductCategory productCategory = ProductCategory.valueOf(category.toUpperCase());
             products = productRepository.findByProductStateAndProductCategory("ACTIVE", productCategory, pageable);
         } else {
@@ -33,6 +35,34 @@ public class ProductService {
         }
 
         return products.map(this::toDto);
+    }
+
+    private Sort parseSort(String sort) {
+        if (sort == null || sort.isEmpty()) {
+            return Sort.by(Sort.Direction.ASC, "productName");
+        }
+
+        String[] parts = sort.split(",");
+        String property = parts[0].trim();
+        Sort.Direction direction = Sort.Direction.ASC;
+
+        if (parts.length > 1) {
+            String dir = parts[1].trim().toUpperCase();
+            if ("DESC".equals(dir)) {
+                direction = Sort.Direction.DESC;
+            }
+        }
+
+        // Маппинг имени свойства из DTO на поле entity
+        String entityField = switch (property) {
+            case "productName" -> "productName";
+            case "price" -> "price";
+            case "productCategory" -> "productCategory";
+            case "quantityState" -> "quantityState";
+            default -> "productName";
+        };
+
+        return Sort.by(direction, entityField);
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +81,7 @@ public class ProductService {
                 .imageSrc(productDto.getImageSrc())
                 .price(productDto.getPrice())
                 .productCategory(productDto.getProductCategory())
-                .quantityState(QuantityState.MANY)
+                .quantityState(productDto.getQuantityState() != null ? productDto.getQuantityState() : QuantityState.MANY)
                 .productState(ProductState.ACTIVE)
                 .build();
 
@@ -70,6 +100,7 @@ public class ProductService {
         if (productDto.getImageSrc() != null) product.setImageSrc(productDto.getImageSrc());
         if (productDto.getPrice() != null) product.setPrice(productDto.getPrice());
         if (productDto.getProductCategory() != null) product.setProductCategory(productDto.getProductCategory());
+        if (productDto.getQuantityState() != null) product.setQuantityState(productDto.getQuantityState());
 
         product = productRepository.save(product);
         log.info("Обновлён товар: {}", product.getProductId());
