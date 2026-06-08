@@ -10,8 +10,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.collector.dto.*;
-import ru.yandex.practicum.collector.enums.DeviceType;
+import ru.yandex.practicum.grpc.telemetry.event.*;
 import ru.yandex.practicum.kafka.telemetry.event.*;
 
 import java.io.ByteArrayOutputStream;
@@ -31,41 +30,40 @@ public class CollectorService {
     @Value("${kafka.topic.hubs}")
     private String hubsTopic;
 
-    public void processSensorEvent(SensorEvent event) {
+    public void processSensorEvent(SensorEventProto event) {
         byte[] avroBytes = mapToSensorAvro(event);
-        ProducerRecord<String, byte[]> record = new ProducerRecord<>(sensorsTopic, event.getHubId(), avroBytes);
-        kafkaProducer.send(record, (metadata, exception) -> {
-            if (exception != null) {
-                log.error("Error sending sensor event: {}", exception.getMessage());
-            } else {
-                log.debug("Sensor event sent to topic {}: partition {}, offset {}",
-                        metadata.topic(), metadata.partition(), metadata.offset());
-            }
-        });
+        kafkaProducer.send(new ProducerRecord<>(sensorsTopic, event.getHubId(), avroBytes),
+                (metadata, exception) -> {
+                    if (exception != null) {
+                        log.error("Error sending sensor event: {}", exception.getMessage());
+                    } else {
+                        log.debug("Sensor event sent to topic {}: partition {}, offset {}",
+                                metadata.topic(), metadata.partition(), metadata.offset());
+                    }
+                });
     }
 
-    public void processHubEvent(HubEvent event) {
+    public void processHubEvent(HubEventProto event) {
         byte[] avroBytes = mapToHubAvro(event);
-        ProducerRecord<String, byte[]> record = new ProducerRecord<>(hubsTopic, event.getHubId(), avroBytes);
-        kafkaProducer.send(record, (metadata, exception) -> {
-            if (exception != null) {
-                log.error("Error sending hub event: {}", exception.getMessage());
-            } else {
-                log.debug("Hub event sent to topic {}: partition {}, offset {}",
-                        metadata.topic(), metadata.partition(), metadata.offset());
-            }
-        });
+        kafkaProducer.send(new ProducerRecord<>(hubsTopic, event.getHubId(), avroBytes),
+                (metadata, exception) -> {
+                    if (exception != null) {
+                        log.error("Error sending hub event: {}", exception.getMessage());
+                    } else {
+                        log.debug("Hub event sent to topic {}: partition {}, offset {}",
+                                metadata.topic(), metadata.partition(), metadata.offset());
+                    }
+                });
     }
 
-    private byte[] mapToSensorAvro(SensorEvent event) {
+    private byte[] mapToSensorAvro(SensorEventProto event) {
         try {
             SensorEventAvro avro = SensorEventAvro.newBuilder()
                     .setId(event.getId())
                     .setHubId(event.getHubId())
-                    .setTimestamp(event.getTimestamp())
+                    .setTimestamp(convertTimestamp(event.getTimestamp()))
                     .setPayload(createSensorPayload(event))
                     .build();
-
             return serializeAvro(avro);
         } catch (IOException e) {
             log.error("Error serializing sensor event: {}", e.getMessage());
@@ -73,55 +71,55 @@ public class CollectorService {
         }
     }
 
-    private Object createSensorPayload(SensorEvent event) {
-        return switch (event.getType()) {
-            case CLIMATE_SENSOR_EVENT -> {
-                ClimateSensorEvent e = (ClimateSensorEvent) event;
-                yield ClimateSensorAvro.newBuilder()
-                        .setTemperatureC(e.getTemperatureC())
-                        .setHumidity(e.getHumidity())
-                        .setCo2Level(e.getCo2Level())
-                        .build();
-            }
-            case LIGHT_SENSOR_EVENT -> {
-                LightSensorEvent e = (LightSensorEvent) event;
-                yield LightSensorAvro.newBuilder()
-                        .setLinkQuality(e.getLinkQuality())
-                        .setLuminosity(e.getLuminosity())
-                        .build();
-            }
-            case MOTION_SENSOR_EVENT -> {
-                MotionSensorEvent e = (MotionSensorEvent) event;
+    private Object createSensorPayload(SensorEventProto event) {
+        return switch (event.getPayloadCase()) {
+            case MOTION_SENSOR -> {
+                MotionSensorProto m = event.getMotionSensor();
                 yield MotionSensorAvro.newBuilder()
-                        .setLinkQuality(e.getLinkQuality())
-                        .setMotion(e.isMotion())
-                        .setVoltage(e.getVoltage())
+                        .setLinkQuality(m.getLinkQuality())
+                        .setMotion(m.getMotion())
+                        .setVoltage(m.getVoltage())
                         .build();
             }
-            case SWITCH_SENSOR_EVENT -> {
-                SwitchSensorEvent e = (SwitchSensorEvent) event;
-                yield SwitchSensorAvro.newBuilder()
-                        .setState(e.isState())
-                        .build();
-            }
-            case TEMPERATURE_SENSOR_EVENT -> {
-                TemperatureSensorEvent e = (TemperatureSensorEvent) event;
+            case TEMPERATURE_SENSOR -> {
+                TemperatureSensorProto t = event.getTemperatureSensor();
                 yield TemperatureSensorAvro.newBuilder()
-                        .setTemperatureC(e.getTemperatureC())
-                        .setTemperatureF(e.getTemperatureF())
+                        .setTemperatureC(t.getTemperatureC())
+                        .setTemperatureF(t.getTemperatureF())
                         .build();
             }
+            case LIGHT_SENSOR -> {
+                LightSensorProto l = event.getLightSensor();
+                yield LightSensorAvro.newBuilder()
+                        .setLinkQuality(l.getLinkQuality())
+                        .setLuminosity(l.getLuminosity())
+                        .build();
+            }
+            case CLIMATE_SENSOR -> {
+                ClimateSensorProto c = event.getClimateSensor();
+                yield ClimateSensorAvro.newBuilder()
+                        .setTemperatureC(c.getTemperatureC())
+                        .setHumidity(c.getHumidity())
+                        .setCo2Level(c.getCo2Level())
+                        .build();
+            }
+            case SWITCH_SENSOR -> {
+                SwitchSensorProto s = event.getSwitchSensor();
+                yield SwitchSensorAvro.newBuilder()
+                        .setState(s.getState())
+                        .build();
+            }
+            case PAYLOAD_NOT_SET -> throw new IllegalArgumentException("Payload not set");
         };
     }
 
-    private byte[] mapToHubAvro(HubEvent event) {
+    private byte[] mapToHubAvro(HubEventProto event) {
         try {
             HubEventAvro avro = HubEventAvro.newBuilder()
                     .setHubId(event.getHubId())
-                    .setTimestamp(event.getTimestamp())
+                    .setTimestamp(convertTimestamp(event.getTimestamp()))
                     .setPayload(createHubPayload(event))
                     .build();
-
             return serializeAvro(avro);
         } catch (IOException e) {
             log.error("Error serializing hub event: {}", e.getMessage());
@@ -129,59 +127,61 @@ public class CollectorService {
         }
     }
 
-    private Object createHubPayload(HubEvent event) {
-        return switch (event.getType()) {
+    private Object createHubPayload(HubEventProto event) {
+        return switch (event.getPayloadCase()) {
             case DEVICE_ADDED -> {
-                DeviceAddedEvent e = (DeviceAddedEvent) event;
+                DeviceAddedEventProto d = event.getDeviceAdded();
                 yield DeviceAddedEventAvro.newBuilder()
-                        .setId(e.getId())
-                        .setType(DeviceTypeAvro.valueOf(e.getDeviceType().name()))
+                        .setId(d.getId())
+                        .setType(DeviceTypeAvro.valueOf(d.getType().name()))
                         .build();
             }
             case DEVICE_REMOVED -> {
-                DeviceRemovedEvent e = (DeviceRemovedEvent) event;
+                DeviceRemovedEventProto d = event.getDeviceRemoved();
                 yield DeviceRemovedEventAvro.newBuilder()
-                        .setId(e.getId())
+                        .setId(d.getId())
                         .build();
             }
             case SCENARIO_ADDED -> {
-                ScenarioAddedEvent e = (ScenarioAddedEvent) event;
+                ScenarioAddedEventProto s = event.getScenarioAdded();
                 yield ScenarioAddedEventAvro.newBuilder()
-                        .setName(e.getName())
-                        .setConditions(e.getConditions().stream()
+                        .setName(s.getName())
+                        .setConditions(s.getConditionList().stream()
                                 .map(this::mapCondition)
                                 .collect(Collectors.toList()))
-                        .setActions(e.getActions().stream()
+                        .setActions(s.getActionList().stream()
                                 .map(this::mapAction)
                                 .collect(Collectors.toList()))
                         .build();
             }
             case SCENARIO_REMOVED -> {
-                ScenarioRemovedEvent e = (ScenarioRemovedEvent) event;
+                ScenarioRemovedEventProto s = event.getScenarioRemoved();
                 yield ScenarioRemovedEventAvro.newBuilder()
-                        .setName(e.getName())
+                        .setName(s.getName())
                         .build();
             }
+            case PAYLOAD_NOT_SET -> throw new IllegalArgumentException("Payload not set");
         };
     }
 
-    private ScenarioConditionAvro mapCondition(ScenarioAddedEvent.ScenarioCondition condition) {
+    private ScenarioConditionAvro mapCondition(ScenarioConditionProto c) {
         ScenarioConditionAvro.Builder builder = ScenarioConditionAvro.newBuilder()
-                .setSensorId(condition.getSensorId())
-                .setType(ConditionTypeAvro.valueOf(condition.getType()))
-                .setOperation(ConditionOperationAvro.valueOf(condition.getOperation()));
-        if (condition.getValue() != null) {
-            builder.setValue(condition.getValue());
+                .setSensorId(c.getSensorId())
+                .setType(ConditionTypeAvro.valueOf(c.getType().name()))
+                .setOperation(ConditionOperationAvro.valueOf(c.getOperation().name()));
+        switch (c.getValueCase()) {
+            case BOOL_VALUE -> builder.setValue(c.getBoolValue());
+            case INT_VALUE -> builder.setValue(c.getIntValue());
         }
         return builder.build();
     }
 
-    private DeviceActionAvro mapAction(ScenarioAddedEvent.DeviceAction action) {
+    private DeviceActionAvro mapAction(DeviceActionProto a) {
         DeviceActionAvro.Builder builder = DeviceActionAvro.newBuilder()
-                .setSensorId(action.getSensorId())
-                .setType(ActionTypeAvro.valueOf(action.getType()));
-        if (action.getValue() != null) {
-            builder.setValue(action.getValue());
+                .setSensorId(a.getSensorId())
+                .setType(ActionTypeAvro.valueOf(a.getType().name()));
+        if (a.hasValue()) {
+            builder.setValue(a.getValue());
         }
         return builder.build();
     }
@@ -194,9 +194,11 @@ public class CollectorService {
         encoder.flush();
         byte[] bytes = out.toByteArray();
         log.info("Avro serialized: schema={}, class={}, size={} bytes",
-                avroRecord.getSchema().getName(),
-                avroRecord.getClass().getSimpleName(),
-                bytes.length);
+                avroRecord.getSchema().getName(), avroRecord.getClass().getSimpleName(), bytes.length);
         return bytes;
+    }
+
+    private java.time.Instant convertTimestamp(com.google.protobuf.Timestamp timestamp) {
+        return java.time.Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
     }
 }
