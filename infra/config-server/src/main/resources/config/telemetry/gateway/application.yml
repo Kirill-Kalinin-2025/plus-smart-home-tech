@@ -33,6 +33,30 @@ spring:
                   maxBackoff: 2000ms
                   factor: 2
 
+        # Роут для заказов
+        - id: order-route
+          uri: lb://order
+          predicates:
+            - Path=/order/**
+          filters:
+            - PrefixPath=/api/v1
+
+        # Роут для платежей
+        - id: payment-route
+          uri: lb://payment
+          predicates:
+            - Path=/payment/**
+          filters:
+            - PrefixPath=/api/v1
+
+        # Роут для доставки
+        - id: delivery-route
+          uri: lb://delivery
+          predicates:
+            - Path=/delivery/**
+          filters:
+            - PrefixPath=/api/v1
+
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin
 

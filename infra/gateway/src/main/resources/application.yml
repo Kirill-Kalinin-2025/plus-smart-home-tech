@@ -2,10 +2,10 @@ spring:
   application:
     name: gateway
   config:
-    import: "configserver:"
+    import: "optional:configserver:"
   cloud:
     config:
-      fail-fast: true
+      fail-fast: false
       retry:
         useRandomPolicy: true
         max-interval: 6000
